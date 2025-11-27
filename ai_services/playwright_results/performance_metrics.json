@@ -1,0 +1,9 @@
+{
+  "url": "https://www.baidu.com",
+  "timestamp": "2025-11-27T22:51:40.509533",
+  "performance_metrics": {
+    "domContentLoaded": 251,
+    "complete": 435,
+    "domInteractive": 227
+  }
+}
