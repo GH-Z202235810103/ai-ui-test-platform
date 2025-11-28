@@ -1,3 +1,10 @@
+"""
+OpenCV 视觉定位演示脚本
+AI与行为驱动的UI自动化测试平台 - 核心技术验证
+作者：GH-Z202235810103
+GitHub: https://github.com/GH-Z202235810103/ai-ui-test-platform
+"""
+
 import cv2
 import numpy as np
 import pyautogui

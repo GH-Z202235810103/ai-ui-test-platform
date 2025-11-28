@@ -1,8 +1,8 @@
 """
-Playwright 自动化测试演示脚本 - 修复B站搜索版
+Playwright 自动化测试演示脚本
 AI与行为驱动的UI自动化测试平台 - 核心技术验证
-作者：[你的姓名]
-GitHub: [你的仓库地址]
+作者：GH-Z202235810103
+GitHub: https://github.com/GH-Z202235810103/ai-ui-test-platform
 """
 
 from playwright.sync_api import sync_playwright
