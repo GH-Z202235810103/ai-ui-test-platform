@@ -26,9 +26,13 @@ def find_element_on_screen(template_path, confidence=0.8):
     
     # 2. 截取整个屏幕
     print("正在截取屏幕...")
-    screenshot = ImageGrab.grab()
-    screenshot = np.array(screenshot)
-    screenshot = cv2.cvtColor(screenshot, cv2.COLOR_RGB2BGR)  # 转换颜色空间
+    try:
+        screenshot = ImageGrab.grab()
+        screenshot = np.array(screenshot)
+        screenshot = cv2.cvtColor(screenshot, cv2.COLOR_RGB2BGR)  # 转换颜色空间
+    except Exception as e:
+        print(f"❌ 截屏失败: {e}")
+        return None
     
     # 3. 使用模板匹配算法
     print("正在进行图像匹配...")
@@ -46,84 +50,72 @@ def find_element_on_screen(template_path, confidence=0.8):
         center_y = max_loc[1] + h // 2
         
         print(f"✅ 找到目标！坐标: ({center_x}, {center_y}), 置信度: {max_val:.3f}")
-        return (center_x, center_y)
+        return (center_x, center_y, max_val)  # 返回置信度
     else:
         print(f"❌ 未找到目标，最高置信度 {max_val:.3f} 低于阈值 {confidence}")
         return None
 
-def real_time_mouse_capture():
+def safe_screenshot(bbox=None):
     """
-    实时截取鼠标位置区域的演示
+    安全的屏幕截图函数
     """
-    print("=== 实时鼠标位置截取演示 ===")
-    print("说明：")
-    print("1. 将鼠标移动到你想截取的目标上")
-    print("2. 程序会实时显示鼠标位置的区域")
-    print("3. 按 's' 键保存当前区域作为模板")
-    print("4. 按 'q' 键退出实时模式")
-    print("5. 按 'f' 键开始查找保存的模板")
+    try:
+        if bbox:
+            return ImageGrab.grab(bbox=bbox)
+        else:
+            return ImageGrab.grab()
+    except Exception as e:
+        print(f"❌ 截图失败: {e}")
+        return None
+
+def simple_capture_demo():
+    """
+    简化版截取演示 - 稳定可靠
+    """
+    print("\n=== 简化版截取演示 ===")
+    print("将鼠标移动到目标位置，5秒后自动截取...")
     
-    capture_size = 150  # 截取区域大小
-    template_saved = False
-    template_path = "real_time_template.png"
+    for i in range(5, 0, -1):
+        print(f"{i}...", end=' ', flush=True)
+        time.sleep(1)
+    print("截取！")
     
-    # 创建OpenCV窗口
-    cv2.namedWindow("Real-time Mouse Area", cv2.WINDOW_NORMAL)
+    current_x, current_y = pyautogui.position()
+    print(f"鼠标位置: ({current_x}, {current_y})")
     
-    print("\n开始实时监控...")
+    # 截取区域
+    box_size = 100
+    x1 = max(0, current_x - box_size//2)
+    y1 = max(0, current_y - box_size//2)
+    x2 = current_x + box_size//2
+    y2 = current_y + box_size//2
     
-    while True:
-        # 获取当前鼠标位置
-        current_x, current_y = pyautogui.position()
+    target_area = safe_screenshot((x1, y1, x2, y2))
+    if target_area:
+        target_area.save("simple_target.png")
+        print(f"✅ 已保存截取区域: simple_target.png")
         
-        # 计算截取区域（确保不超出屏幕边界）
-        screen_width, screen_height = pyautogui.size()
-        x1 = max(0, current_x - capture_size//2)
-        y1 = max(0, current_y - capture_size//2)
-        x2 = min(screen_width, current_x + capture_size//2)
-        y2 = min(screen_height, current_y + capture_size//2)
+        # 显示截取的图像
+        target_cv = np.array(target_area)
+        target_cv = cv2.cvtColor(target_cv, cv2.COLOR_RGB2BGR)
+        cv2.imshow("Captured Area", target_cv)
+        print("按任意键关闭预览...")
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
         
-        # 截取鼠标位置区域
-        mouse_area = ImageGrab.grab(bbox=(x1, y1, x2, y2))
-        mouse_area_cv = np.array(mouse_area)
-        mouse_area_cv = cv2.cvtColor(mouse_area_cv, cv2.COLOR_RGB2BGR)
-        
-        # 在图像上添加信息
-        cv2.putText(mouse_area_cv, f"Mouse: ({current_x}, {current_y})", 
-                   (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        cv2.putText(mouse_area_cv, f"Area: {x1},{y1} to {x2},{y2}", 
-                   (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
-        cv2.putText(mouse_area_cv, "Press 's' to save, 'q' to quit, 'f' to find", 
-                   (10, 90), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
-        
-        # 显示图像
-        cv2.imshow("Real-time Mouse Area", mouse_area_cv)
-        
-        # 检测按键
-        key = cv2.waitKey(1) & 0xFF
-        
-        if key == ord('q'):  # 退出
-            break
-        elif key == ord('s'):  # 保存模板
-            cv2.imwrite(template_path, mouse_area_cv)
-            template_saved = True
-            print(f"✅ 模板已保存: {template_path}")
-            print(f"📏 模板尺寸: {mouse_area_cv.shape[1]}x{mouse_area_cv.shape[0]}")
-        elif key == ord('f'):  # 查找模板
-            if template_saved:
-                print("🔍 开始查找保存的模板...")
-                position = find_element_on_screen(template_path, confidence=0.7)
-                if position:
-                    x, y = position
-                    print(f"🎯 移动到找到的位置: ({x}, {y})")
-                    pyautogui.moveTo(x, y, duration=1)
-                else:
-                    print("❌ 未找到模板目标")
-            else:
-                print("❌ 请先按 's' 保存模板")
-    
-    cv2.destroyAllWindows()
-    return template_saved
+        # 查找目标
+        position = find_element_on_screen("simple_target.png", confidence=0.7)
+        if position:
+            x, y, confidence = position
+            print(f"🎯 找到目标，移动到: ({x}, {y})，置信度: {confidence:.3f}")
+            pyautogui.moveTo(x, y, duration=1)
+            return True
+        else:
+            print("❌ 未找到目标")
+            return False
+    else:
+        print("❌ 截图失败")
+        return False
 
 def test_real_world_scenario():
     """
@@ -136,51 +128,63 @@ def test_real_world_scenario():
     # 第一步：让用户选择目标区域
     print("\n步骤1: 选择目标区域")
     print("将鼠标移动到你想测试的目标上（如图标、按钮等）")
-    print("在实时窗口中按 's' 保存为目标模板")
+    print("5秒后自动截取该区域...")
+    time.sleep(5)
     
-    template_saved = real_time_mouse_capture()
+    current_x, current_y = pyautogui.position()
+    print(f"鼠标位置: ({current_x}, {current_y})")
     
-    if not template_saved:
-        print("❌ 未保存模板，跳过测试")
-        return
+    # 截取目标区域
+    box_size = 100
+    x1 = max(0, current_x - box_size//2)
+    y1 = max(0, current_y - box_size//2)
+    x2 = current_x + box_size//2
+    y2 = current_y + box_size//2
     
-    # 第二步：查找目标
-    print("\n步骤2: 查找目标")
-    print("现在移动鼠标到屏幕其他位置，然后按任意键开始查找...")
-    input("按回车键继续...")
-    
-    position = find_element_on_screen("real_time_template.png", confidence=0.7)
-    
-    if position:
-        x, y = position
-        print(f"🎯 成功找到目标！坐标: ({x}, {y})")
+    target_area = safe_screenshot((x1, y1, x2, y2))
+    if target_area:
+        target_area.save("real_world_template.png")
+        print(f"✅ 模板已保存: real_world_template.png")
         
-        # 移动到目标位置
-        pyautogui.moveTo(x, y, duration=1)
-        print("✅ 已移动到目标位置")
+        # 第二步：查找目标
+        print("\n步骤2: 查找目标")
+        print("现在移动鼠标到屏幕其他位置，然后按回车键开始查找...")
+        input("按回车键继续...")
         
-        # 进行点击操作（可选）
-        response = input("是否要在该位置进行点击？(y/n): ")
-        if response.lower() == 'y':
-            pyautogui.click()
-            print("✅ 已执行点击操作")
+        position = find_element_on_screen("real_world_template.png", confidence=0.7)
+        
+        if position:
+            x, y, confidence = position
+            print(f"🎯 成功找到目标！坐标: ({x}, {y})，置信度: {confidence:.3f}")
+            
+            # 移动到目标位置
+            pyautogui.moveTo(x, y, duration=1)
+            print("✅ 已移动到目标位置")
+            
+            # 进行点击操作（可选）
+            response = input("是否要在该位置进行点击？(y/n): ")
+            if response.lower() == 'y':
+                pyautogui.click()
+                print("✅ 已执行点击操作")
+            return True
+        else:
+            print("❌ 未找到目标")
+            return False
     else:
-        print("❌ 未找到目标，可能的原因：")
-        print("   - 屏幕内容发生了变化")
-        print("   - 目标被其他窗口遮挡")
-        print("   - 匹配置信度阈值过高")
+        print("❌ 截图失败，无法创建模板")
+        return False
 
 def run_opencv_demo():
     """
-    OpenCV视觉定位演示 - 完整版
+    OpenCV视觉定位演示 - 稳定版
     """
     print("=== OpenCV 视觉定位演示开始 ===")
     
     while True:
         print("\n请选择演示模式:")
-        print("1. 基础演示（截取固定区域）")
-        print("2. 实时鼠标区域截取")
-        print("3. 真实场景测试")
+        print("1. 基础演示（自动截取测试）")
+        print("2. 真实场景测试（推荐）")
+        print("3. 简化演示（最高成功率）")
         print("4. 退出")
         
         choice = input("请输入选择 (1-4): ").strip()
@@ -190,39 +194,36 @@ def run_opencv_demo():
             print("请将鼠标悬停在你想识别的目标上，5秒后截取该区域...")
             time.sleep(5)
             
-            # 获取当前鼠标位置
             current_x, current_y = pyautogui.position()
             print(f"鼠标当前位置: ({current_x}, {current_y})")
             
-            # 以鼠标位置为中心截取一个区域
             box_size = 100
             x1 = max(0, current_x - box_size//2)
             y1 = max(0, current_y - box_size//2)
             x2 = current_x + box_size//2
             y2 = current_y + box_size//2
             
-            # 截取目标区域
-            target_area = ImageGrab.grab(bbox=(x1, y1, x2, y2))
-            target_area.save("example_target.png")
-            print(f"已截取区域: ({x1}, {y1}) 到 ({x2}, {y2})")
-            print("示例区域已保存为 'example_target.png'")
-            
-            # 查找目标
-            position = find_element_on_screen("example_target.png", confidence=0.7)
-            
-            if position:
-                x, y = position
-                print(f"🎯 移动到目标位置: ({x}, {y})")
-                pyautogui.moveTo(x, y, duration=1)
-                print("✅ 视觉定位演示成功！")
+            target_area = safe_screenshot((x1, y1, x2, y2))
+            if target_area:
+                target_area.save("example_target.png")
+                print(f"已截取区域: ({x1}, {y1}) 到 ({x2}, {y2})")
+                
+                position = find_element_on_screen("example_target.png", confidence=0.7)
+                if position:
+                    x, y, confidence = position
+                    print(f"🎯 移动到目标位置: ({x}, {y})，置信度: {confidence:.3f}")
+                    pyautogui.moveTo(x, y, duration=1)
+                    print("✅ 视觉定位演示成功！")
+                else:
+                    print("未找到目标")
             else:
-                print("未找到目标，可能截图区域特征不够明显")
+                print("❌ 截图失败")
                 
         elif choice == '2':
-            real_time_mouse_capture()
+            test_real_world_scenario()
             
         elif choice == '3':
-            test_real_world_scenario()
+            simple_capture_demo()
             
         elif choice == '4':
             print("👋 演示结束，再见！")
@@ -233,4 +234,11 @@ def run_opencv_demo():
 
 # === 这里是程序的入口 ===
 if __name__ == "__main__":
-    run_opencv_demo()
+    try:
+        run_opencv_demo()
+    except KeyboardInterrupt:
+        print("\n程序被用户中断")
+    except Exception as e:
+        print(f"程序出错: {e}")
+    finally:
+        cv2.destroyAllWindows()
