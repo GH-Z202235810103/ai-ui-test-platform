@@ -1,0 +1,50 @@
+body {
+    background-color: #f8f9fa;
+}
+
+.testcase-item {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.testcase-item:hover {
+    background-color: #e9ecef;
+    transform: translateX(5px);
+}
+
+.status-pending {
+    border-left: 4px solid #ffc107;
+}
+
+.status-running {
+    border-left: 4px solid #17a2b8;
+}
+
+.status-passed {
+    border-left: 4px solid #28a745;
+}
+
+.status-failed {
+    border-left: 4px solid #dc3545;
+}
+
+.badge-pending {
+    background-color: #ffc107;
+}
+
+.badge-running {
+    background-color: #17a2b8;
+}
+
+.badge-passed {
+    background-color: #28a745;
+}
+
+.badge-failed {
+    background-color: #dc3545;
+}
+
+.navbar-brand {
+    font-weight: bold;
+    font-size: 1.5rem;
+}
