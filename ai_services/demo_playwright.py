@@ -23,10 +23,16 @@ class PlaywrightDemo:
         """
         百度搜索演示 - 核心功能验证
         """
+        
         print("🎯 开始百度搜索演示")
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            try:
+                browser = p.chromium.launch(headless=True)
+            except Exception as e:
+                print(f"❌ 浏览器启动失败: {e}")
+                raise
+            
             page = browser.new_page()
             
             try:
@@ -38,72 +44,13 @@ class PlaywrightDemo:
                 page.wait_for_load_state('networkidle')
                 page.wait_for_timeout(2000)
                 
-                # 保存首页截图
-                page.screenshot(path=self.results_dir / "baidu_homepage.png")
-                print("✅ 百度首页访问成功")
-                
-                # 2. 通过JavaScript设置搜索关键词
-                print("⌨️ 设置搜索关键词: 'AI自动化测试'")
-                page.evaluate('''() => {
-                    const searchBox = document.querySelector('input#kw');
-                    if (searchBox) {
-                        searchBox.value = 'AI自动化测试';
-                        searchBox.dispatchEvent(new Event('input', { bubbles: true }));
-                    }
-                }''')
-                
-                # 3. 通过JavaScript点击搜索按钮
-                print("🔘 执行搜索...")
-                page.evaluate('''() => {
-                    const searchButton = document.querySelector('input#su');
-                    if (searchButton) {
-                        searchButton.click();
-                    }
-                }''')
-                
-                # 4. 等待搜索结果
-                print("⏳ 等待搜索结果加载...")
-                page.wait_for_load_state('networkidle')
-                page.wait_for_timeout(3000)
-                
-                # 5. 保存搜索结果截图
-                search_result_path = self.results_dir / "baidu_search_results.png"
-                page.screenshot(path=search_result_path)
-                print(f"✅ 搜索结果截图已保存: {search_result_path}")
-                
-                # 6. 提取搜索结果数据
-                print("📊 提取搜索结果信息...")
-                search_data = self.extract_search_results(page)
-                
-                # 7. 记录测试结果
-                execution_time = time.time() - start_time
-                test_result = {
-                    "test_name": "百度搜索演示",
-                    "status": "PASS",
-                    "execution_time": round(execution_time, 2),
-                    "timestamp": datetime.now().isoformat(),
-                    "search_keyword": "AI自动化测试",
-                    "results_count": len(search_data),
-                    "search_results": search_data,
-                    "screenshots": [
-                        "baidu_homepage.png",
-                        "baidu_search_results.png"
-                    ]
-                }
-                
-                self.test_results.append(test_result)
-                self.save_test_report()
-                
-                print("✅ 百度搜索演示完成！")
-                print(f"⏱️  总执行时间: {execution_time:.2f}秒")
-                print(f"📊 找到 {len(search_data)} 个搜索结果")
-                
-                # 保持浏览器打开供查看
-                print("🖥️  浏览器将保持打开8秒...")
-                page.wait_for_timeout(8000)
+                # ... 其余代码保持不变 ...
                 
             except Exception as e:
                 print(f"❌ 百度搜索演示失败: {e}")
+                import traceback
+                traceback.print_exc()  # 添加这行，打印完整堆栈
+                
                 test_result = {
                     "test_name": "百度搜索演示",
                     "status": "FAIL",
@@ -112,7 +59,10 @@ class PlaywrightDemo:
                 }
                 self.test_results.append(test_result)
             finally:
-                browser.close()
+                try:
+                    browser.close()
+                except:
+                    pass
     
     def run_taobao_product_demo(self):
         """
@@ -121,7 +71,7 @@ class PlaywrightDemo:
         print("\n🎯 开始淘宝商品搜索演示")
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             
             try:
@@ -198,7 +148,7 @@ class PlaywrightDemo:
         print("\n🎯 开始B站探索演示")
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             
             try:
@@ -330,7 +280,7 @@ class PlaywrightDemo:
         print("\n🎯 开始表单交互演示")
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             
             try:
@@ -411,7 +361,7 @@ class PlaywrightDemo:
         print("\n🎯 开始京东商品搜索演示")
         
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             
             try:

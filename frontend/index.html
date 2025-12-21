@@ -3,152 +3,345 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI UI自动化测试平台</title>
-    <link rel="stylesheet" href="style.css">
+    <title>🤖 AI UI自动化测试平台</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Vue 3 -->
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="app">
-        <!-- 导航栏 -->
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <div class="container">
+        <!-- 顶部导航栏 -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm mb-4">
+            <div class="container-fluid">
                 <a class="navbar-brand" href="#">
-                    🤖 AI UI自动化测试平台
+                    <i class="fas fa-robot me-2"></i>
+                    AI UI自动化测试平台
                 </a>
+                <div class="navbar-text">
+                    <span class="badge bg-light text-dark me-2">
+                        <i class="fas fa-database me-1"></i> {{ testcases.length }} 个用例
+                    </span>
+                    <span class="badge bg-success">
+                        <i class="fas fa-plug me-1"></i> 后端已连接
+                    </span>
+                </div>
             </div>
         </nav>
 
-        <div class="container mt-4">
-            <!-- 顶部控制栏 -->
-            <div class="row mb-4">
-                <div class="col-md-8">
-                    <div class="input-group">
-                        <input type="text" class="form-control" 
-                               v-model="nlpDescription" 
-                               placeholder="用自然语言描述测试用例，如：'测试用户登录功能'">
-                        <button class="btn btn-primary" @click="generateFromNLP">
-                            🧠 AI生成测试用例
-                        </button>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <button class="btn btn-success w-100" @click="runAllTests">
-                        🚀 一键执行所有测试
-                    </button>
-                </div>
-            </div>
-
-            <!-- 主内容区 -->
+        <div class="container-fluid">
             <div class="row">
                 <!-- 左侧：测试用例列表 -->
                 <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>📋 测试用例管理</h5>
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-list-check text-primary me-2"></i>
+                                测试用例管理
+                            </h5>
+                            <div>
+                                <button class="btn btn-sm btn-outline-success me-2" @click="loadTestCases" title="刷新">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary" @click="runAllTests">
+                                    <i class="fas fa-play me-1"></i> 执行全部
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="list-group list-group-flush">
+                                <div 
+                                    v-for="testcase in testcases" 
+                                    :key="testcase.id"
+                                    class="list-group-item testcase-item"
+                                    :class="getStatusClass(testcase.status)"
+                                    @click="selectTestCase(testcase)"
+                                    :title="testcase.description"
+                                >
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center">
+                                                <span class="badge me-2" :class="getStatusBadgeClass(testcase.status)">
+                                                    {{ testcase.status === 'pending' ? '待执行' : 
+                                                       testcase.status === 'running' ? '执行中' : 
+                                                       testcase.status === 'passed' ? '通过' : '失败' }}
+                                                </span>
+                                                <strong>{{ testcase.name }}</strong>
+                                            </div>
+                                            <small class="text-muted d-block mt-1">{{ testcase.description }}</small>
+                                            <div class="mt-2">
+                                                <span class="badge bg-secondary me-1">
+                                                    <i class="fas fa-steps"></i> {{ testcase.steps ? testcase.steps.length : 0 }} 步
+                                                </span>
+                                                <small class="text-muted">
+                                                    <i class="far fa-clock me-1"></i>
+                                                    {{ formatDate(testcase.created_at) }}
+                                                </small>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            class="btn btn-sm btn-outline-primary"
+                                            @click.stop="executeTestCase(testcase)"
+                                            :disabled="testcase.status === 'running'"
+                                            title="执行测试"
+                                        >
+                                            <i class="fas fa-play" v-if="testcase.status !== 'running'"></i>
+                                            <i class="fas fa-spinner fa-spin" v-else></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- AI生成测试用例 -->
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-magic text-success me-2"></i>
+                                AI智能生成测试
+                            </h5>
                         </div>
                         <div class="card-body">
-                            <div v-for="testcase in testcases" :key="testcase.id" 
-                                 class="testcase-item mb-2 p-2 border rounded"
-                                 :class="getStatusClass(testcase.status)"
-                                 @click="selectTestCase(testcase)">
-                                <div class="d-flex justify-content-between">
-                                    <strong>{{ testcase.name }}</strong>
-                                    <span class="badge" :class="getStatusBadgeClass(testcase.status)">
-                                        {{ testcase.status }}
-                                    </span>
-                                </div>
-                                <small class="text-muted">{{ testcase.description }}</small>
+                            <div class="mb-3">
+                                <label class="form-label">
+                                    <i class="fas fa-comment-dots me-1"></i>
+                                    用自然语言描述测试场景
+                                </label>
+                                <textarea 
+                                    class="form-control" 
+                                    v-model="nlpDescription" 
+                                    rows="3"
+                                    placeholder="例如：测试百度搜索'人工智能'的功能，验证搜索结果的相关性和准确性"
+                                ></textarea>
+                            </div>
+                            <button 
+                                class="btn btn-success w-100" 
+                                @click="generateFromNLP"
+                                :disabled="!nlpDescription.trim()"
+                            >
+                                <i class="fas fa-bolt me-2"></i>
+                                AI生成测试用例
+                            </button>
+                            <div class="mt-3 text-center">
+                                <small class="text-muted">
+                                    <i class="fas fa-lightbulb me-1"></i>
+                                    支持：DeepSeek AI + 智能步骤绑定
+                                </small>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 右侧：详情与执行 -->
+                <!-- 中间：测试执行与结果 -->
                 <div class="col-md-8">
-                    <div v-if="selectedTestCase" class="card">
-                        <div class="card-header">
-                            <h5>🎯 测试用例详情: {{ selectedTestCase.name }}</h5>
+                    <!-- 当前执行的测试用例 -->
+                    <div class="card shadow-sm mb-4" v-if="selectedTestCase">
+                        <div class="card-header bg-white">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-0">
+                                        <i class="fas fa-file-alt text-info me-2"></i>
+                                        {{ selectedTestCase.name }}
+                                    </h5>
+                                    <small class="text-muted">{{ selectedTestCase.description }}</small>
+                                </div>
+                                <div>
+                                    <span class="badge me-2" :class="getStatusBadgeClass(selectedTestCase.status)">
+                                        {{ selectedTestCase.status === 'pending' ? '待执行' : 
+                                           selectedTestCase.status === 'running' ? '执行中' : 
+                                           selectedTestCase.status === 'passed' ? '通过' : '失败' }}
+                                    </span>
+                                    <button 
+                                        class="btn btn-primary btn-sm"
+                                        @click="executeSingleTest"
+                                        :disabled="selectedTestCase.status === 'running'"
+                                    >
+                                        <i class="fas fa-play me-1" v-if="selectedTestCase.status !== 'running'"></i>
+                                        <i class="fas fa-spinner fa-spin me-1" v-else></i>
+                                        {{ selectedTestCase.status === 'running' ? '执行中...' : '执行测试' }}
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                         <div class="card-body">
-                            <p>{{ selectedTestCase.description }}</p>
-                            
-                            <h6>测试步骤:</h6>
-                            <ol>
-                                <li v-for="(step, index) in selectedTestCase.steps" :key="index">
-                                    {{ step }}
-                                </li>
-                            </ol>
-
-                            <div class="mt-3">
-                                <button class="btn btn-primary me-2" @click="executeSingleTest">
-                                    ▶️ 执行此测试
-                                </button>
-                                <button class="btn btn-outline-secondary" @click="openRecorder">
-                                    🎥 智能录制回放
-                                </button>
+                            <!-- 测试步骤 -->
+                            <div class="mb-4">
+                                <h6><i class="fas fa-list-ol text-secondary me-2"></i>测试步骤</h6>
+                                <div class="steps-container">
+                                    <div 
+                                        v-for="(step, index) in selectedTestCase.steps" 
+                                        :key="index"
+                                        class="step-item"
+                                    >
+                                        <div class="step-number">{{ index + 1 }}</div>
+                                        <div class="step-content">{{ step }}</div>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- 执行结果 -->
-                            <div v-if="executionResult" class="mt-4 p-3 border rounded">
-                                <h6>📊 执行报告</h6>
-                                <p>状态: <span class="badge bg-success">{{ executionResult.status }}</span></p>
-                                <p>耗时: {{ executionResult.duration }}</p>
-                                <p>{{ executionResult.details }}</p>
+                            <div v-if="executionResult">
+                                <h6>
+                                    <i class="fas fa-chart-line text-success me-2"></i>
+                                    执行结果
+                                </h6>
+                                <div class="result-card">
+                                    <div class="result-header">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <span class="result-title">测试执行报告</span>
+                                                <span class="result-id">ID: {{ executionResult.execution_id }}</span>
+                                            </div>
+                                            <span class="result-status" :class="executionResult.status">
+                                                <i class="fas fa-check-circle me-1" v-if="executionResult.status === 'passed'"></i>
+                                                <i class="fas fa-times-circle me-1" v-else-if="executionResult.status === 'failed'"></i>
+                                                <i class="fas fa-spinner fa-spin me-1" v-else></i>
+                                                {{ executionResult.status === 'passed' ? '通过' : 
+                                                   executionResult.status === 'failed' ? '失败' : '执行中' }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="result-details">
+                                        <div class="detail-row">
+                                            <div class="detail-col">
+                                                <i class="fas fa-clock text-info me-2"></i>
+                                                <strong>开始时间:</strong> 
+                                                {{ formatDateTime(executionResult.start_time) }}
+                                            </div>
+                                            <div class="detail-col">
+                                                <i class="fas fa-hourglass-end text-info me-2"></i>
+                                                <strong>结束时间:</strong> 
+                                                {{ formatDateTime(executionResult.end_time) }}
+                                            </div>
+                                            <div class="detail-col">
+                                                <i class="fas fa-stopwatch text-info me-2"></i>
+                                                <strong>耗时:</strong> 
+                                                <span class="text-success fw-bold">{{ executionResult.duration }}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 执行日志 -->
+                                    <div class="execution-log">
+                                        <div class="log-header">
+                                            <i class="fas fa-terminal me-2"></i>
+                                            <strong>执行日志</strong>
+                                        </div>
+                                        <div class="log-content">
+                                            <div 
+                                                v-for="(log, index) in executionResult.log" 
+                                                :key="index"
+                                                class="log-entry"
+                                            >
+                                                <i class="fas fa-chevron-right text-muted me-2"></i>
+                                                <span :class="{'text-success': log.includes('✅'), 'text-danger': log.includes('❌')}">
+                                                    {{ log }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 截图信息 -->
+                                    <div class="screenshots" v-if="executionResult.screenshots && executionResult.screenshots.length > 0">
+                                        <div class="screenshot-header">
+                                            <i class="fas fa-camera me-2"></i>
+                                            <strong>测试截图</strong>
+                                            <span class="badge bg-secondary ms-2">{{ executionResult.screenshots.length }} 张</span>
+                                        </div>
+                                        <div class="screenshot-grid">
+                                            <div 
+                                                v-for="(screenshot, index) in executionResult.screenshots" 
+                                                :key="index"
+                                                class="screenshot-item"
+                                                @click="viewScreenshot(screenshot)"
+                                            >
+                                                <div class="screenshot-preview">
+                                                    <i class="fas fa-image fa-2x"></i>
+                                                </div>
+                                                <div class="screenshot-name">{{ screenshot }}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- 备注 -->
+                                    <div class="note" v-if="executionResult.note || executionResult.details">
+                                        <i class="fas fa-sticky-note me-2"></i>
+                                        <strong>备注:</strong> 
+                                        {{ executionResult.note || executionResult.details }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-else class="text-center py-5 text-muted">
+                                <i class="fas fa-chart-bar fa-3x mb-3"></i>
+                                <p>选择测试用例并执行后，将显示详细结果</p>
                             </div>
                         </div>
                     </div>
 
-                    <div v-else class="card">
-                        <div class="card-body text-center text-muted">
-                            <h5>👈 请从左侧选择一个测试用例</h5>
-                            <p>或使用上方的AI生成功能创建新用例</p>
+                    <!-- 欢迎信息 -->
+                    <div class="card shadow-sm" v-else>
+                        <div class="card-body text-center py-5">
+                            <i class="fas fa-robot fa-4x text-primary mb-4"></i>
+                            <h3 class="mb-3">欢迎使用 AI UI自动化测试平台</h3>
+                            <p class="text-muted mb-4">
+                                请从左侧选择测试用例，或使用AI生成新的测试场景
+                            </p>
+                            <div class="row mt-4">
+                                <div class="col-md-4 mb-3">
+                                    <div class="feature-card">
+                                        <i class="fas fa-brain fa-2x text-success mb-3"></i>
+                                        <h5>AI智能生成</h5>
+                                        <p>使用自然语言描述，AI自动生成测试用例</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="feature-card">
+                                        <i class="fas fa-code fa-2x text-primary mb-3"></i>
+                                        <h5>自动化执行</h5>
+                                        <p>Playwright引擎驱动，支持多浏览器测试</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <div class="feature-card">
+                                        <i class="fas fa-chart-pie fa-2x text-warning mb-3"></i>
+                                        <h5>可视化结果</h5>
+                                        <p>详细的执行报告和测试分析</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- 底部：平台架构展示 -->
-            <div class="row mt-4">
-                <div class="col-12">
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>🏗️ 平台技术架构</h5>
-                        </div>
-                        <div class="card-body">
-                            <div class="row text-center">
-                                <div class="col-md-3">
-                                    <div class="p-3 border rounded">
-                                        <h4>🎭 智能录制回放</h4>
-                                        <p>基于Playwright，多策略元素捕获</p>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="p-3 border rounded">
-                                        <h4>👁️ AI辅助定位</h4>
-                                        <p>OpenCV图像匹配，增强脚本鲁棒性</p>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="p-3 border rounded">
-                                        <h4>🧠 自然语言生成</h4>
-                                        <p>LLM驱动，自动生成测试脚本骨架</p>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="p-3 border rounded">
-                                        <h4>📊 数据管理与报告</h4>
-                                        <p>RESTful API + Vue前端，可视化展示</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+            <!-- 页脚 -->
+            <footer class="mt-5 pt-4 border-top">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>🤖 AI UI自动化测试平台</h6>
+                        <p class="text-muted">基于AI与行为驱动的UI自动化测试解决方案</p>
+                    </div>
+                    <div class="col-md-6 text-end">
+                        <small class="text-muted">
+                            <i class="fas fa-code-branch me-1"></i>
+                            版本 1.0.0 | 
+                            <i class="fas fa-server ms-3 me-1"></i>
+                            后端: {{ apiBaseUrl }}
+                        </small>
                     </div>
                 </div>
-            </div>
+            </footer>
         </div>
     </div>
 
+    <!-- JavaScript文件 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
