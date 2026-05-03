@@ -1,20 +1,89 @@
-# API密钥和环境变量
-.env
-*.env
-
-# 生成的文件
-llm_results/
-playwright_results/
+# ============ Python ============
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 虚拟环境
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!.env.example
+
+# 配置文件（包含敏感信息）
+config.json
+secrets.json
+credentials.json
+*.key
+*.pem
+
+# ============ Playwright和测试结果 ============
+playwright_results/
+test-results/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+screenshots/
+reports/
+
+# ============ 日志文件 ============
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# 系统文件
+# ============ 系统文件 ============
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# IDE文件
+# ============ IDE文件 ============
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
+
+# ============ Node/前端 ============
+node_modules/
+dist/
+build/
+.cache/
+
+# ============ 临时文件 ============
+*.tmp
+*.temp
+.cache/
+.temp/
+tmp/
+temp/
+
+# ============ 项目特定 ============
+# 你的AI生成的文件目录
+ai_generated/
+llm_results/
+# 数据库文件
+*.db
+*.sqlite
+
+# 外部项目
+cc-switch/

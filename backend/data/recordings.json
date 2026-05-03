@@ -1,0 +1,99 @@
+[
+  {
+    "name": "录制用例_2026/2/20 15:41:08",
+    "description": "通过智能录制生成的测试用例",
+    "url": "https://www.baidu.com",
+    "actions": [
+      {
+        "type": "type",
+        "selector": "#chat-textarea",
+        "timestamp": "2026-02-20T15:39:50.474175",
+        "text_content": null,
+        "tagName": "textarea",
+        "element_name": "快船115-112险胜掘金",
+        "text": "B"
+      },
+      {
+        "type": "type",
+        "selector": "#chat-textarea",
+        "timestamp": "2026-02-20T15:39:50.969622",
+        "text_content": null,
+        "tagName": "textarea",
+        "element_name": "快船115-112险胜掘金",
+        "text": "Bz"
+      },
+      {
+        "type": "type",
+        "selector": "#chat-textarea",
+        "timestamp": "2026-02-20T15:39:51.203813",
+        "text_content": null,
+        "tagName": "textarea",
+        "element_name": "快船115-112险胜掘金",
+        "text": "Bzh"
+      },
+      {
+        "type": "type",
+        "selector": "#chat-textarea",
+        "timestamp": "2026-02-20T15:39:51.357016",
+        "text_content": null,
+        "tagName": "textarea",
+        "element_name": "快船115-112险胜掘金",
+        "text": "Bzha"
+      },
+      {
+        "type": "type",
+        "selector": "#chat-textarea",
+        "timestamp": "2026-02-20T15:39:51.434010",
+        "text_content": null,
+        "tagName": "textarea",
+        "element_name": "快船115-112险胜掘金",
+        "text": "Bzhan"
+      },
+      {
+        "type": "type",
+        "selector": "#chat-textarea",
+        "timestamp": "2026-02-20T15:39:51.907291",
+        "text_content": null,
+        "tagName": "textarea",
+        "element_name": "快船115-112险胜掘金",
+        "text": "Bzhang"
+      },
+      {
+        "type": "type",
+        "selector": "#chat-textarea",
+        "timestamp": "2026-02-20T15:39:52.544891",
+        "text_content": null,
+        "tagName": "textarea",
+        "element_name": "快船115-112险胜掘金",
+        "text": "Bzhan"
+      },
+      {
+        "type": "type",
+        "selector": "#chat-textarea",
+        "timestamp": "2026-02-20T15:39:52.749807",
+        "text_content": null,
+        "tagName": "textarea",
+        "element_name": "快船115-112险胜掘金",
+        "text": "B站"
+      },
+      {
+        "type": "press_enter",
+        "selector": "#chat-textarea",
+        "timestamp": "2026-02-20T15:39:53.047288",
+        "text_content": null,
+        "tagName": "textarea",
+        "element_name": null
+      },
+      {
+        "type": "click",
+        "selector": ".tts-b-hl",
+        "timestamp": "2026-02-20T15:39:56.282339",
+        "text_content": "哔哩哔哩 (゜-゜)つロ 干杯~-bilibili",
+        "tagName": "span",
+        "element_name": ""
+      }
+    ],
+    "id": "70f23a8b-56ac-43ac-86e2-932e46ab6cdb",
+    "created_at": "2026-02-20T15:41:11.190745"
+  }
+]

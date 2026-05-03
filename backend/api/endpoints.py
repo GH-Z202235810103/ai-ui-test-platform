@@ -2,17 +2,45 @@
 backend/api/endpoints.py - API端点实现
 集成三大AI引擎，提供完整测试平台功能
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
+from datetime import datetime
 import sys
 import os
 import json
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from core.executor import execute_test_case_async
 
 # ===== 修复1: 删除重复的test_cases_db定义 =====
 # 初始化测试用例数据库（只在这里定义一次）
 test_cases_db = []
 execution_results_db = {}  # 存储执行结果的字典
+
+# 模块级线程池
+from concurrent.futures import ThreadPoolExecutor
+import os
+
+# 初始化线程池
+def init_thread_pool():
+    """初始化线程池"""
+    max_workers = min(os.cpu_count() or 4, 8)  # 最多8个线程
+    executor = ThreadPoolExecutor(max_workers=max_workers)
+    print(f"✅ 初始化线程池，最大并发数: {max_workers}")
+    return executor
+
+# 模块级线程池实例
+executor = init_thread_pool()
+
+def shutdown_thread_pool():
+    """关闭线程池"""
+    global executor
+    if executor:
+        executor.shutdown(wait=True)
+        print("✅ 线程池已关闭")
 
 def init_demo_data():
     """初始化演示数据"""
@@ -45,10 +73,8 @@ def init_demo_data():
         }
     ]
     
-    # 清空并添加演示数据
     test_cases_db.clear()
     test_cases_db.extend(demo_cases)
-    print(f"✅ 初始化了 {len(demo_cases)} 个演示测试用例")
 
 # 在文件导入时自动初始化
 init_demo_data()
@@ -163,6 +189,118 @@ async def generate_from_nlp(request: NLPRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"生成失败: {str(e)}")
+
+class ExecuteRequest(BaseModel):
+    test_case_id: int
+    headless: bool = True
+    base_url: Optional[str] = None
+
+@router.post("/execute")
+async def execute_test(request: ExecuteRequest):
+    """执行测试用例（异步执行）"""
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+    from database import get_session, TestCase
+    from core.executor import run_playwright_sync
+    
+    # 使用模块级线程池
+    
+    session = get_session()
+    try:
+        testcase = session.query(TestCase).filter(TestCase.id == request.test_case_id).first()
+        if not testcase:
+            raise HTTPException(status_code=404, detail="测试用例不存在")
+        
+        print(f"📋 测试用例 script_data: {testcase.script_data}")
+        
+        testcase_dict = {
+            "id": testcase.id,
+            "name": testcase.name,
+            "description": testcase.description,
+            "steps": testcase.script_data.get("steps", []) if testcase.script_data else [],
+            "url": testcase.script_data.get("url", "") if testcase.script_data else "",
+            "status": testcase.status
+        }
+        
+        print(f"📋 测试URL: {testcase_dict.get('url')}")
+        print(f"📋 测试步骤: {testcase_dict.get('steps')}")
+    finally:
+        session.close()
+    
+    execution_id = f"exec_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    
+    initial_result = {
+        "status": "running",
+        "execution_id": execution_id,
+        "testcase_id": request.test_case_id,
+        "testcase_name": testcase_dict.get('name'),
+        "start_time": datetime.now().isoformat(),
+        "execution_log": ["测试已提交，正在执行..."],
+        "log": ["测试已提交，正在执行..."]
+    }
+    execution_results_db[execution_id] = initial_result
+    
+    def run_test_task():
+        try:
+            print(f"🚀 开始执行测试: {testcase_dict.get('name')}")
+            result = run_playwright_sync(
+                testcase_dict,
+                headless=request.headless,
+                base_url=request.base_url
+            )
+            
+            final_result = {
+                **initial_result,
+                "status": "passed" if result.get("success") else "failed",
+                "end_time": result.get("end_time"),
+                "duration": result.get("duration"),
+                "execution_log": result.get("execution_log", []),
+                "log": result.get("execution_log", []),
+                "screenshots": result.get("screenshots", []),
+                "error": result.get("error")
+            }
+            
+            session2 = get_session()
+            try:
+                db_testcase = session2.query(TestCase).filter(TestCase.id == request.test_case_id).first()
+                if db_testcase:
+                    db_testcase.status = final_result['status']
+                    session2.commit()
+            finally:
+                session2.close()
+            
+            execution_results_db[execution_id] = final_result
+            print(f"✅ 测试执行完成: {execution_id}")
+            
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            error_result = {
+                **initial_result,
+                "status": "failed",
+                "end_time": datetime.now().isoformat(),
+                "duration": "0s",
+                "execution_log": [f"执行失败: {str(e)[:100]}"],
+                "log": [f"执行失败: {str(e)[:100]}"],
+                "error": str(e)
+            }
+            session2 = get_session()
+            try:
+                db_testcase = session2.query(TestCase).filter(TestCase.id == request.test_case_id).first()
+                if db_testcase:
+                    db_testcase.status = 'failed'
+                    session2.commit()
+            finally:
+                session2.close()
+            execution_results_db[execution_id] = error_result
+            print(f"❌ 测试执行失败: {execution_id} - {e}")
+    
+    # 使用线程池执行测试任务
+    future = executor.submit(run_test_task)
+    # 可以添加回调处理，但这里不需要等待结果
+    print(f"✅ 测试任务已提交到线程池: {execution_id}")
+    
+    return initial_result
 
 @router.post("/execute-playwright")
 async def execute_playwright(request: ExecutionRequest):
@@ -630,3 +768,249 @@ async def debug_info():
         "test_cases": test_cases_db,
         "execution_ids": list(execution_results_db.keys())
     }
+
+
+# ===== 视觉模板API（数据库存储） =====
+
+@router.get("/visual/templates")
+async def list_visual_templates():
+    """获取视觉模板列表"""
+    from database import get_session, VisualElement
+    
+    session = get_session()
+    try:
+        elements = session.query(VisualElement).all()
+        templates = []
+        for el in elements:
+            templates.append({
+                "id": el.id,
+                "name": el.name,
+                "element_type": el.element_type,
+                "usage_count": el.usage_count,
+                "success_count": el.success_count,
+                "match_threshold": el.match_threshold,
+                "created_at": el.created_at.isoformat() if el.created_at else None
+            })
+        return {"success": True, "templates": templates, "count": len(templates)}
+    finally:
+        session.close()
+
+
+@router.post("/visual/templates")
+async def create_visual_template(
+    file: UploadFile = File(...),
+    element_name: str = Form(...),
+    element_type: str = Form("button")
+):
+    """创建视觉模板 - 存入数据库"""
+    from database import get_session, VisualElement
+    import io
+    
+    # 文件大小限制：10MB
+    max_file_size = 10 * 1024 * 1024
+    content = b""
+    
+    # 流式读取文件，避免一次性加载大文件到内存
+    original_size = 0
+    content = b""
+    
+    while chunk := await file.read(8192):
+        content += chunk
+        original_size += len(chunk)
+        if original_size > max_file_size:
+            raise HTTPException(status_code=413, detail=f"文件大小超过限制 ({max_file_size // (1024*1024)}MB)")
+    
+    # 优化：如果文件过大，进行压缩
+    compressed = False
+    if original_size > 1 * 1024 * 1024:  # 1MB以上进行压缩
+        try:
+            import cv2
+            import numpy as np
+            from PIL import Image
+            
+            # 解码图片
+            img = Image.open(io.BytesIO(content))
+            
+            # 压缩图片
+            buffer = io.BytesIO()
+            img.save(buffer, format='PNG', optimize=True, quality=80)
+            compressed_content = buffer.getvalue()
+            
+            # 如果压缩成功且文件变小
+            if len(compressed_content) < len(content):
+                content = compressed_content
+                compressed = True
+        except Exception:
+            # 压缩失败则使用原始内容
+            pass
+    
+    session = get_session()
+    try:
+        existing = session.query(VisualElement).filter(VisualElement.name == element_name).first()
+        if existing:
+            existing.feature_data = content
+            existing.element_type = element_type
+            existing.screenshot_path = f"db://{element_name}"
+        else:
+            element = VisualElement(
+                name=element_name,
+                element_type=element_type,
+                feature_data=content,
+                screenshot_path=f"db://{element_name}",
+                match_threshold=0.8
+            )
+            session.add(element)
+        
+        session.commit()
+        
+        # 同时保存到文件系统，确保视觉定位功能可用
+        try:
+            import cv2
+            import numpy as np
+            from core.visual_locator import get_visual_locator
+            
+            # 将二进制数据转换为OpenCV图像
+            nparr = np.frombuffer(content, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            
+            if img is not None:
+                locator = get_visual_locator()
+                locator.save_template(img, element_name, element_type)
+                print(f"模板已保存到文件系统: {element_name}")
+            else:
+                print(f"无法将内容转换为图像: {element_name}")
+        except Exception as e:
+            print(f"保存到文件系统失败: {e}")
+            # 不影响主流程，继续返回成功
+        
+        return {
+            "success": True, 
+            "message": f"模板 '{element_name}' 已保存到数据库和文件系统", 
+            "name": element_name, 
+            "element_type": element_type,
+            "file_size": len(content),  # 返回文件大小（字节）
+            "original_size": original_size,  # 返回原始文件大小（字节）
+            "compressed": compressed
+        }
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        session.close()
+
+
+@router.get("/visual/templates/{name}")
+async def get_visual_template(name: str):
+    """获取视觉模板详情"""
+    from database import get_session, VisualElement
+    
+    session = get_session()
+    try:
+        element = session.query(VisualElement).filter(VisualElement.name == name).first()
+        if not element:
+            raise HTTPException(status_code=404, detail="模板不存在")
+        
+        return {
+            "success": True,
+            "id": element.id,
+            "name": element.name,
+            "element_type": element.element_type,
+            "usage_count": element.usage_count,
+            "success_count": element.success_count,
+            "match_threshold": element.match_threshold
+        }
+    finally:
+        session.close()
+
+
+@router.delete("/visual/templates/{name}")
+async def delete_visual_template(name: str):
+    """删除视觉模板"""
+    from database import get_session, VisualElement
+    
+    session = get_session()
+    try:
+        element = session.query(VisualElement).filter(VisualElement.name == name).first()
+        if not element:
+            raise HTTPException(status_code=404, detail="模板不存在")
+        
+        session.delete(element)
+        session.commit()
+        return {"success": True, "message": "模板已删除"}
+    finally:
+        session.close()
+
+
+@router.get("/visual/templates/{name}/preview")
+async def preview_visual_template(name: str):
+    """预览视觉模板"""
+    from fastapi.responses import Response
+    from database import get_session, VisualElement
+    
+    session = get_session()
+    try:
+        element = session.query(VisualElement).filter(VisualElement.name == name).first()
+        if not element or not element.feature_data:
+            raise HTTPException(status_code=404, detail="模板不存在")
+        
+        return Response(content=element.feature_data, media_type="image/png")
+    finally:
+        session.close()
+
+
+# ===== 录制回放API =====
+
+@router.post("/recording/start")
+async def api_start_recording(request: dict):
+    """开始录制"""
+    from core.recorder import start_recording
+    
+    url = request.get("url", "https://www.baidu.com")
+    headless = request.get("headless", False)
+    
+    try:
+        session_id = await start_recording(url, headless)
+        return {
+            "success": True,
+            "session_id": session_id,
+            "message": f"录制已启动: {session_id}"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/recording/stop")
+async def api_stop_recording(request: dict):
+    """停止录制"""
+    from core.recorder import stop_recording
+    
+    session_id = request.get("session_id")
+    if not session_id:
+        raise HTTPException(status_code=400, detail="缺少session_id")
+    
+    try:
+        actions = await stop_recording(session_id)
+        return {
+            "success": True,
+            "actions": actions,
+            "count": len(actions)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/recording/replay")
+async def api_replay_recording(request: dict):
+    """回放录制"""
+    from core.recorder import replay_recording
+    
+    session_id = request.get("session_id", "replay")
+    url = request.get("url", "https://www.baidu.com")
+    actions = request.get("actions", [])
+    headless = request.get("headless", True)
+    
+    try:
+        result = await replay_recording(session_id, url, actions, headless)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

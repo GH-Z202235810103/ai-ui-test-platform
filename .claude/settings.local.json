@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m py_compile backend/core/recorder.py)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :8000)",
+      "Bash(python backend/app.py)",
+      "Bash(timeout 5)",
+      "Bash(curl -s http://localhost:8000/api/v1/debug)",
+      "Bash(ping -n 6 127.0.0.1)",
+      "Bash(curl -s http://localhost:8000/)",
+      "Bash(python test_recording_api.py)",
+      "Bash(playwright install:*)",
+      "Bash(python:*)",
+      "Bash(pkill -f \"python.*app.py\")",
+      "Bash(pip-compile:*)",
+      "Bash(curl -s http://localhost:8000/api/v2/health)",
+      "Bash(curl:*)",
+      "Bash(taskkill:*)",
+      "Bash(playwright list:*)"
+    ]
+  }
+}
