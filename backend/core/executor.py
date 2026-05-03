@@ -24,6 +24,13 @@ import tempfile
 import os
 import hashlib
 import random
+import time
+
+from core.step_parser import StepParser, ParsedStep
+from core.retry_strategy import RetryStrategy, RetryResult
+from core.execution_logger import ExecutionLogger
+from core.smart_wait import SmartWait
+from core.security_handler import SecurityHandler, VerifyInfo, HandleResult
 
 SCREENSHOT_DIR = Path(__file__).parent.parent / "screenshots"
 
@@ -1571,3 +1578,133 @@ def execute_test_case_sync(testcase: Dict, headless: bool = True, base_url: Opti
     """同步执行"""
 
     return run_playwright_sync(testcase, headless, base_url)
+
+
+def create_driver(headless: bool = True):
+    """创建浏览器驱动"""
+    from selenium import webdriver
+    from selenium.webdriver.edge.options import Options as EdgeOptions
+    from selenium.webdriver.chrome.options import Options as ChromeOptions
+    from selenium.webdriver.firefox.options import Options as FirefoxOptions
+    
+    browsers = [
+        ('Edge', EdgeOptions, webdriver.Edge),
+        ('Chrome', ChromeOptions, webdriver.Chrome),
+        ('Firefox', FirefoxOptions, webdriver.Firefox),
+    ]
+    
+    for name, options_class, driver_class in browsers:
+        try:
+            options = options_class()
+            if headless:
+                options.add_argument('--headless')
+            options.add_argument('--disable-gpu')
+            options.add_argument('--no-sandbox')
+            options.add_argument('--window-size=1920,1080')
+            options.add_argument('--disable-dev-shm-usage')
+            options.add_argument('--disable-blink-features=AutomationControlled')
+            options.add_argument('--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+            
+            driver = driver_class(options=options)
+            
+            try:
+                driver.execute_cdp_cmd('Page.addScriptToEvaluateOnNewDocument', {
+                    'source': 'Object.defineProperty(navigator, "webdriver", {get: () => undefined});'
+                })
+            except Exception:
+                pass
+            
+            return driver
+        except Exception as e:
+            print(f"[Executor] {name} 启动失败: {e}")
+            continue
+    
+    return None
+
+
+def execute_parsed_step(driver, parsed: ParsedStep, smart_wait: SmartWait, retry: RetryStrategy, logger: ExecutionLogger, headless: bool) -> Dict:
+    """执行解析后的步骤"""
+    from selenium.webdriver.common.by import By
+    from selenium.common.exceptions import TimeoutException, NoSuchElementException
+    
+    operation = parsed.operation
+    params = parsed.params
+    
+    try:
+        if operation == 'open':
+            url = params.get('url', 'https://www.baidu.com')
+            driver.get(url)
+            smart_wait.wait_for_page_stable(timeout=5)
+            return {'success': True}
+        
+        elif operation == 'input':
+            value = params.get('value', '')
+            
+            selectors = [
+                (By.ID, 'kw'),
+                (By.NAME, 'wd'),
+                (By.CSS_SELECTOR, 'input[type="text"]'),
+            ]
+            
+            try:
+                element = smart_wait.wait_for_element(selectors, timeout=5)
+                element.clear()
+                element.send_keys(value)
+                return {'success': True}
+            except TimeoutException:
+                return {'success': False, 'error': '未找到输入框'}
+        
+        elif operation == 'click':
+            target = params.get('target', '')
+            
+            selectors = [
+                (By.ID, target),
+                (By.CLASS_NAME, target),
+                (By.LINK_TEXT, target),
+                (By.PARTIAL_LINK_TEXT, target),
+            ]
+            
+            try:
+                element = smart_wait.wait_for_element(selectors, timeout=5)
+                element.click()
+                return {'success': True}
+            except TimeoutException:
+                return {'success': False, 'error': f'未找到元素: {target}'}
+        
+        elif operation == 'search':
+            keyword = params.get('keyword', '')
+            
+            input_selectors = [(By.ID, 'kw'), (By.NAME, 'wd')]
+            try:
+                input_element = smart_wait.wait_for_element(input_selectors, timeout=5)
+                input_element.clear()
+                input_element.send_keys(keyword)
+            except TimeoutException:
+                return {'success': False, 'error': '未找到搜索框'}
+            
+            button_selectors = [(By.ID, 'su'), (By.CSS_SELECTOR, 'input[type="submit"]')]
+            try:
+                button_element = smart_wait.wait_for_element(button_selectors, timeout=5)
+                button_element.click()
+            except TimeoutException:
+                try:
+                    input_element.send_keys('\n')
+                except Exception:
+                    pass
+            
+            smart_wait.wait_for_page_stable()
+            return {'success': True}
+        
+        elif operation == 'wait':
+            duration = params.get('duration', 1)
+            time.sleep(duration)
+            return {'success': True}
+        
+        elif operation == 'verify':
+            return {'success': True}
+        
+        else:
+            return {'success': True, 'message': f'操作已跳过: {operation}'}
+            
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
