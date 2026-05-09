@@ -470,6 +470,8 @@ async def export_report(format: str = "html", db: Session = Depends(get_db)):
 @router.post("/reports")
 async def create_report(task_id: int, summary: Dict, details: Optional[str] = None, 
                         duration: Optional[int] = None, screenshot_refs: Optional[List] = None,
+                        total_count: int = 0, pass_count: int = 0, fail_count: int = 0, skip_count: int = 0,
+                        status: str = "completed",
                         db: Session = Depends(get_db)):
     """创建测试报告"""
     db_report = TestReport(
@@ -477,7 +479,12 @@ async def create_report(task_id: int, summary: Dict, details: Optional[str] = No
         summary=summary,
         details=details,
         duration=duration,
-        screenshot_refs=screenshot_refs
+        screenshot_refs=screenshot_refs,
+        total_count=total_count,
+        pass_count=pass_count,
+        fail_count=fail_count,
+        skip_count=skip_count,
+        status=status
     )
     db.add(db_report)
     db.commit()
@@ -486,11 +493,120 @@ async def create_report(task_id: int, summary: Dict, details: Optional[str] = No
 
 @router.get("/reports/{report_id}")
 async def get_report(report_id: int, db: Session = Depends(get_db)):
-    """获取测试报告详情"""
+    """获取测试报告详情（含步骤）"""
+    from database import ReportStep
     report = db.query(TestReport).filter(TestReport.id == report_id).first()
     if not report:
         raise HTTPException(status_code=404, detail="测试报告不存在")
-    return {"success": True, "data": serialize_model(report)}
+    
+    report_data = serialize_model(report)
+    
+    steps = db.query(ReportStep).filter(ReportStep.report_id == report_id).order_by(ReportStep.step_index).all()
+    report_data["steps"] = [serialize_model(s) for s in steps]
+    
+    total = report.total_count or 0
+    report_data["pass_rate"] = round(report.pass_count / total * 100, 2) if total > 0 else 0.0
+    
+    if report.task_id:
+        task = db.query(TestTask).filter(TestTask.id == report.task_id).first()
+        if task:
+            report_data["task_name"] = task.name
+    
+    return {"success": True, "data": report_data}
+
+@router.get("/reports/trends/overview")
+async def get_report_trends(project_id: Optional[int] = None, days: int = 30, db: Session = Depends(get_db)):
+    """获取报告趋势数据"""
+    from datetime import timedelta
+    
+    start_date = datetime.utcnow() - timedelta(days=days)
+    
+    query = db.query(TestReport).filter(TestReport.generated_at >= start_date)
+    
+    if project_id:
+        task_ids = db.query(TestTask.id).filter(TestTask.project_id == project_id).all()
+        task_ids = [t[0] for t in task_ids]
+        query = query.filter(TestReport.task_id.in_(task_ids))
+    
+    reports = query.order_by(TestReport.generated_at).all()
+    
+    trends = []
+    for report in reports:
+        total = report.total_count or 0
+        pass_rate = round(report.pass_count / total * 100, 2) if total > 0 else 0.0
+        trends.append({
+            "date": report.generated_at.strftime("%Y-%m-%d") if report.generated_at else "",
+            "total": total,
+            "passed": report.pass_count or 0,
+            "failed": report.fail_count or 0,
+            "pass_rate": pass_rate,
+            "avg_duration": report.duration or 0
+        })
+    
+    total_reports = len(reports)
+    avg_pass_rate = round(sum(t["pass_rate"] for t in trends) / total_reports, 2) if total_reports > 0 else 0.0
+    total_tests = sum(t["total"] for t in trends)
+    
+    return {
+        "success": True,
+        "data": {
+            "project_id": project_id,
+            "date_range": {
+                "start": start_date.strftime("%Y-%m-%d"),
+                "end": datetime.utcnow().strftime("%Y-%m-%d")
+            },
+            "trends": trends,
+            "summary": {
+                "total_reports": total_reports,
+                "avg_pass_rate": avg_pass_rate,
+                "total_tests": total_tests
+            }
+        }
+    }
+
+@router.get("/reports/{report_id}/export")
+async def export_report_by_id(report_id: int, format: str = "html", db: Session = Depends(get_db)):
+    """导出测试报告"""
+    from core.report_export import ReportExportService
+    from fastapi.responses import Response
+    
+    report = db.query(TestReport).filter(TestReport.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="测试报告不存在")
+    
+    export_service = ReportExportService()
+    
+    try:
+        if format == "pdf":
+            pdf_bytes = export_service.export_pdf(report_id, db)
+            return Response(
+                content=pdf_bytes,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename=report_{report_id}.pdf"}
+            )
+        else:
+            html_content = export_service.export_html(report_id, db)
+            return Response(
+                content=html_content,
+                media_type="text/html",
+                headers={"Content-Disposition": f"attachment; filename=report_{report_id}.html"}
+            )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"导出报告失败: {str(e)}")
+
+@router.get("/screenshots/{filename}")
+async def get_screenshot(filename: str):
+    """获取截图文件"""
+    from fastapi.responses import FileResponse
+    from pathlib import Path
+    
+    screenshots_dir = Path(__file__).parent.parent.parent.parent / "screenshots"
+    file_path = screenshots_dir / filename
+    
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="截图文件不存在")
+    
+    return FileResponse(str(file_path))
 
 @router.get("/visual-elements")
 async def list_visual_elements(db: Session = Depends(get_db)):

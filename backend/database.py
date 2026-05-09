@@ -96,14 +96,41 @@ class TestReport(Base):
     __tablename__ = "test_reports"
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    summary = Column(JSON, nullable=False)
+    task_id = Column(Integer, ForeignKey("test_tasks.id"))
+    
+    total_count = Column(Integer, default=0)
+    pass_count = Column(Integer, default=0)
+    fail_count = Column(Integer, default=0)
+    skip_count = Column(Integer, default=0)
+    
+    summary = Column(JSON)
     details = Column(Text)
     duration = Column(Integer)
-    task_id = Column(Integer, ForeignKey("test_tasks.id"))
     screenshot_refs = Column(JSON)
     generated_at = Column(TIMESTAMP, default=datetime.utcnow)
+    status = Column(String(20), default="completed")
     
     task = relationship("TestTask", back_populates="test_reports")
+    steps = relationship("ReportStep", back_populates="report", cascade="all, delete-orphan")
+
+class ReportStep(Base):
+    """报告步骤表"""
+    __tablename__ = "report_steps"
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    report_id = Column(Integer, ForeignKey("test_reports.id"))
+    
+    step_index = Column(Integer)
+    step_name = Column(String(255))
+    step_desc = Column(Text)
+    status = Column(String(20))
+    duration = Column(Integer)
+    error_message = Column(Text)
+    expected_screenshot = Column(String(500))
+    actual_screenshot = Column(String(500))
+    created_at = Column(TIMESTAMP, default=datetime.utcnow)
+    
+    report = relationship("TestReport", back_populates="steps")
 
 class VisualElement(Base):
     """视觉元素特征表"""
