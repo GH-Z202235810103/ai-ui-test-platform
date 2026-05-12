@@ -9,6 +9,12 @@ import os
 import sys
 from pathlib import Path
 
+# 设置标准输出和标准错误为 UTF-8 编码，解决 Windows 系统上的编码问题
+if sys.platform == 'win32':
+    import io
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 from config import (
@@ -83,10 +89,6 @@ screenshots_dir.mkdir(parents=True, exist_ok=True)
 app.mount("/screenshots", StaticFiles(directory=str(screenshots_dir)), name="screenshots")
 logger.info(f"✅ 截图目录已挂载: {screenshots_dir}")
 
-frontend_dir = BASE_DIR / "frontend"
-if frontend_dir.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
-
 if __name__ == "__main__":
     import uvicorn
     
@@ -98,6 +100,7 @@ if __name__ == "__main__":
         host=API_HOST,
         port=API_PORT,
         log_level="info",
-        access_log=True
+        access_log=True,
+        reload=True
     )
     

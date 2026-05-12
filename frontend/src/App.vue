@@ -1,16 +1,18 @@
 <template>
-  <div id="app">
-    <router-view />
-  </div>
+  <router-view />
 </template>
 
 <script setup lang="ts">
 </script>
 
 <style>
-body {
+* {
   margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html, body, #app {
+  height: 100%;
   font-family: 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #f5f7fa;
 }
 </style>

@@ -1,0 +1,167 @@
+<mxfile host="app.diagrams.net" modified="2026-05-06T00:00:00.000Z" agent="Mozilla/5.0" version="21.0.0" type="device">
+  <diagram name="回放流程图" id="playback-flow">
+    <mxGraphModel dx="1000" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- A: 开始回放 -->
+        <mxCell id="A" value="开始回放" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="340" y="40" width="120" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- A -> B -->
+        <mxCell id="AB" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="A" target="B">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- B: 判断操作类型 -->
+        <mxCell id="B" value="判断操作类型" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="340" y="120" width="120" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- B -> C (导航指令) -->
+        <mxCell id="BC" value="导航指令" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="B" target="C">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- C: 跳转页面并监听Load事件 -->
+        <mxCell id="C" value="跳转页面并监听Load事件" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="80" y="240" width="180" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- C -> D -->
+        <mxCell id="CD" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="C" target="D">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- D: 等待页面稳定状态 -->
+        <mxCell id="D" value="等待页面稳定状态" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="80" y="320" width="180" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- D -> E -->
+        <mxCell id="DE" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="D" target="E">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- E: 页面是否稳定 -->
+        <mxCell id="E" value="页面是否稳定" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="110" y="400" width="120" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- E -> D (否) -->
+        <mxCell id="ED" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="E" target="D">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="40" y="440"/>
+              <mxPoint x="40" y="345"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- E -> F (是) -->
+        <mxCell id="EF" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="E" target="F">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- F: 是否有后续步骤 -->
+        <mxCell id="F" value="是否有后续步骤" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="110" y="520" width="120" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- F -> B (是) -->
+        <mxCell id="FB" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="F" target="B">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="300" y="560"/>
+              <mxPoint x="300" y="160"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- F -> K (否) -->
+        <mxCell id="FK" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="F" target="K">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- K: 回放结束 -->
+        <mxCell id="K" value="回放结束" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="110" y="720" width="120" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- B -> G (交互指令) -->
+        <mxCell id="BG" value="交互指令" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="B" target="G">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="540" y="160"/>
+              <mxPoint x="540" y="265"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- G: 采用主策略查找元素 -->
+        <mxCell id="G" value="采用主策略查找元素" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="540" y="240" width="180" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- G -> H -->
+        <mxCell id="GH" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="G" target="H">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- H: 执行点击或输入操作 -->
+        <mxCell id="H" value="执行点击或输入操作" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="540" y="320" width="180" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- H -> I -->
+        <mxCell id="HI" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="H" target="I">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+        
+        <!-- I: 操作是否成功 -->
+        <mxCell id="I" value="操作是否成功" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="570" y="400" width="120" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- I -> J (否) -->
+        <mxCell id="IJ" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="I" target="J">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="760" y="440"/>
+              <mxPoint x="760" y="505"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- J: 切换备用策略重试 -->
+        <mxCell id="J" value="切换备用策略重试" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Microsoft YaHei;" vertex="1" parent="1">
+          <mxGeometry x="600" y="480" width="140" height="50" as="geometry"/>
+        </mxCell>
+        
+        <!-- J -> G -->
+        <mxCell id="JG" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=0;entryX=0;entryY=0.5;" edge="1" parent="1" source="J" target="G">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="670" y="200"/>
+              <mxPoint x="500" y="200"/>
+              <mxPoint x="500" y="265"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- I -> F (是) -->
+        <mxCell id="IF" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="I" target="F">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="460" y="440"/>
+              <mxPoint x="460" y="560"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

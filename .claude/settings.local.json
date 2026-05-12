@@ -17,7 +17,21 @@
       "Bash(curl -s http://localhost:8000/api/v2/health)",
       "Bash(curl:*)",
       "Bash(taskkill:*)",
-      "Bash(playwright list:*)"
+      "Bash(playwright list:*)",
+      "Bash(claude plugin *)",
+      "Bash(npm run *)",
+      "Bash(npm start *)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "Bash(pkill -f \"vite\")",
+      "Bash(findstr :3000)",
+      "Bash(findstr :8001)",
+      "Bash(findstr :5173)",
+      "Bash(D:/毕设git/ai-ui-test-platform/backend/start_server_new.py *)",
+      "Bash(D:/毕设git/ai-ui-test-platform/frontend/npm run dev *)",
+      "Bash(D:\\\\\\\\毕设git\\\\\\\\ai-ui-test-platform\\\\\\\\backend\\\\\\\\start_server_new.py *)",
+      "Bash(D:\\\\\\\\毕设git\\\\\\\\ai-ui-test-platform\\\\\\\\frontend\\\\\\\\npm run dev *)",
+      "Bash(./start_backend.bat *)",
+      "Bash(./start_frontend.bat *)"
     ]
   }
 }

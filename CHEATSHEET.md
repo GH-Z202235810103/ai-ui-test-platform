@@ -3,8 +3,9 @@
 ## 📋 项目信息
 
 - **项目名称**: AI UI自动化测试平台
-- **技术栈**: Python + FastAPI + Vue.js + Selenium + Playwright
-- **后端端口**: 8000
+- **技术栈**: Python + FastAPI + Vue.js 3 + Element Plus + Playwright
+- **后端端口**: 8001
+- **前端端口**: 3000
 - **数据库**: SQLite
 
 ## 🚀 常用命令
@@ -73,10 +74,17 @@ cd backend
 python app.py
 
 # 后端服务地址
-http://localhost:8000
+http://localhost:8001
 
 # API文档地址
-http://localhost:8000/docs
+http://localhost:8001/docs
+
+# 启动前端服务（新终端）
+cd frontend
+npm run dev
+
+# 前端服务地址
+http://localhost:3000
 ```
 
 ## 📁 项目结构
@@ -202,6 +210,52 @@ run_playwright_sync() [使用Selenium]
 - **recorder.py**: 智能录制功能，使用Playwright
 - **visual\_locator.py**: 视觉定位，使用OpenCV
 
+## 🔄 Git版本管理
+
+### 查看提交历史
+
+```bash
+# 查看最近5次提交
+git log --oneline -5
+
+# 查看当前完整提交ID
+git rev-parse HEAD
+
+# 查看短ID
+git rev-parse --short HEAD
+```
+
+### 版本回退命令
+
+| 命令 | 用途 | 危险程度 |
+|------|------|----------|
+| `git checkout <commit_id>` | 查看旧版本（只读） | 🟢 低 |
+| `git reset --hard <commit_id>` | 强制回退到指定版本 | 🔴 高 |
+| `git revert <commit_id>` | 创建反向提交（安全） | 🟢 低 |
+| `git reset --soft HEAD~1` | 撤销最近提交（保留修改） | 🟡 中 |
+| `git reset --hard HEAD~1` | 撤销最近提交（丢弃修改） | 🔴 高 |
+
+### 常用场景
+
+```bash
+# 回退到上个版本
+git reset --hard HEAD~1
+
+# 回退到指定版本（如 441201a）
+git reset --hard 441201a
+
+# 安全撤销某次提交（推荐）
+git revert HEAD
+git push origin main
+
+# 查看某个旧版本代码
+git checkout 441201a
+```
+
+### GitHub查看提交ID
+
+访问：https://github.com/GH-Z202235810103/ai-ui-test-platform/commits/main
+
 ## 🎯 快捷键
 
 ### 前端操作
@@ -225,7 +279,8 @@ run_playwright_sync() [使用Selenium]
 
 ## 🔗 有用的链接
 
-- **API文档**: <http://localhost:8000/docs>
+- **前端界面**: <http://localhost:3000>
+- **后端API文档**: <http://localhost:8001/docs>
 - **项目仓库**: <https://github.com/GH-Z202235810103/ai-ui-test-platform>
 - **DeepSeek API**: <https://platform.deepseek.com/>
 

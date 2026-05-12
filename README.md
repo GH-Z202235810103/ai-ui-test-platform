@@ -73,11 +73,11 @@ playwright install --check
 ```env
 # 服务器配置
 API_HOST=0.0.0.0
-API_PORT=8000
+API_PORT=8001
 API_PREFIX=/api
 
 # 跨域配置
-CORS_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
+CORS_ORIGINS=http://localhost:3000,http://localhost:8001,http://127.0.0.1:8001
 
 # 日志配置
 LOG_LEVEL=INFO
@@ -123,10 +123,10 @@ python app.py
 
 启动成功后，系统会自动打开浏览器，你也可以手动访问：
 
-- **前端页面**: <http://localhost:8000/>
-- **API文档**: <http://localhost:8000/docs>
-- **系统状态**: <http://localhost:8000/api/system/status>
-- **健康检查**: <http://localhost:8000/health>
+- **前端页面**: <http://localhost:3000/>
+- **后端API文档**: <http://localhost:8001/docs>
+- **系统状态**: <http://localhost:8001/api/v2/statistics>
+- **健康检查**: <http://localhost:8001/health>
 
 ## 📖 使用说明
 
@@ -385,7 +385,7 @@ python start_server_new.py
 pip install gunicorn uvicorn[standard]
 
 # 启动生产服务器
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.app:app --bind 0.0.0.0:8000
+gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.app:app --bind 0.0.0.0:8001
 ```
 
 #### 使用Docker
@@ -403,7 +403,7 @@ RUN playwright install chromium
 
 COPY . .
 
-EXPOSE 8000
+EXPOSE 8001
 
 CMD ["python", "start_server_new.py"]
 ```
@@ -412,7 +412,7 @@ CMD ["python", "start_server_new.py"]
 
 ```bash
 docker build -t ai-ui-test-platform .
-docker run -p 8000:8000 ai-ui-test-platform
+docker run -p 8001:8001 ai-ui-test-platform
 ```
 
 ### 3. 配置管理
@@ -422,9 +422,9 @@ docker run -p 8000:8000 ai-ui-test-platform
 | 变量名           | 说明       | 默认值                             |
 | ------------- | -------- | ------------------------------- |
 | API\_HOST     | 服务器主机    | 0.0.0.0                         |
-| API\_PORT     | 服务器端口    | 8000                            |
+| API\_PORT     | 服务器端口    | 8001                            |
 | API\_PREFIX   | API前缀    | /api                            |
-| CORS\_ORIGINS | 允许的跨域来源  | <http://localhost:8000>         |
+| CORS\_ORIGINS | 允许的跨域来源  | <http://localhost:3000>         |
 | LOG\_LEVEL    | 日志级别     | INFO                            |
 | DATABASE\_URL | 数据库连接URL | sqlite:///ai\_test\_platform.db |
 
@@ -435,11 +435,11 @@ docker run -p 8000:8000 ai-ui-test-platform
 ```python
 # 服务器配置
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
-API_PORT = int(os.getenv("API_PORT", "8000"))
+API_PORT = int(os.getenv("API_PORT", "8001"))
 API_PREFIX = os.getenv("API_PREFIX", "/api")
 
 # 跨域配置
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:8000").split(",")
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 
 # 日志配置
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

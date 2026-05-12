@@ -38,13 +38,13 @@ class ExecutionLogger:
         self.log(f"步骤 {step_num}: {step_desc}", category='step', importance=0)
     
     def log_success(self, message: str) -> None:
-        self.log(f"✓ {message}", category='success', importance=0)
-    
+        self.log(f"[OK] {message}", category='success', importance=0)
+
     def log_error(self, message: str) -> None:
-        self.log(f"✗ {message}", category='error', importance=0)
-    
+        self.log(f"[ERROR] {message}", category='error', importance=0)
+
     def log_warning(self, message: str) -> None:
-        self.log(f"⚠ {message}", category='warning', importance=0)
+        self.log(f"[WARNING] {message}", category='warning', importance=0)
     
     def get_logs(self) -> List[str]:
         return self._logs.copy()

@@ -27,8 +27,8 @@ def get_executor():
     """获取全局执行器实例"""
     global _executor
     if _executor is None:
-        from core.executor import TestExecutor
-        _executor = TestExecutor()
+        from core.executor_optimized import OptimizedTestExecutor
+        _executor = OptimizedTestExecutor(headless=True, log_level='normal')
     return _executor
 
 def serialize_model(obj):
@@ -600,7 +600,7 @@ async def get_screenshot(filename: str):
     from fastapi.responses import FileResponse
     from pathlib import Path
     
-    screenshots_dir = Path(__file__).parent.parent.parent.parent / "screenshots"
+    screenshots_dir = Path(__file__).parent.parent.parent / "screenshots"
     file_path = screenshots_dir / filename
     
     if not file_path.exists():
@@ -719,6 +719,23 @@ async def get_statistics(db: Session = Depends(get_db)):
     for status in ["pending", "running", "success", "failed", "stopped"]:
         task_status_counts[status] = db.query(TestTask).filter(TestTask.execution_status == status).count()
     
+    # 添加通过率统计
+    total_tests = db.query(TestReport).count()
+    passed_tests = db.query(TestReport).filter(TestReport.status == "passed").count()
+    failed_tests = db.query(TestReport).filter(TestReport.status == "failed").count()
+    skipped_tests = db.query(TestReport).filter(TestReport.status == "skipped").count()
+    
+    pass_rate = round(passed_tests / total_tests * 100, 2) if total_tests > 0 else 0.0
+    
+    # 添加用例类型统计
+    type_stats = {}
+    testcases = db.query(TestCase).all()
+    for tc in testcases:
+        tc_type = tc.type or 'other'
+        if tc_type not in type_stats:
+            type_stats[tc_type] = 0
+        type_stats[tc_type] += 1
+    
     return {
         "success": True,
         "data": {
@@ -728,7 +745,53 @@ async def get_statistics(db: Session = Depends(get_db)):
             "reports": report_count,
             "recordings": recording_count,
             "visual_elements": visual_element_count,
-            "task_status": task_status_counts
+            "task_status": task_status_counts,
+            "pass_rate_stats": {
+                "total": total_tests,
+                "passed": passed_tests,
+                "failed": failed_tests,
+                "skipped": skipped_tests,
+                "pass_rate": pass_rate
+            },
+            "type_stats": type_stats
+        }
+    }
+
+@router.get("/recent-activities")
+async def get_recent_activities(limit: int = 10, db: Session = Depends(get_db)):
+    """获取最近的测试活动记录"""
+    reports = db.query(TestReport)\
+        .order_by(TestReport.generated_at.desc())\
+        .limit(limit)\
+        .all()
+    
+    activities = []
+    for report in reports:
+        testcase_name = "N/A"
+        if report.summary:
+            if isinstance(report.summary, dict):
+                testcase_name = report.summary.get("testcase_name", "N/A")
+            elif isinstance(report.summary, str):
+                try:
+                    import json
+                    summary_dict = json.loads(report.summary)
+                    testcase_name = summary_dict.get("testcase_name", "N/A")
+                except:
+                    pass
+        
+        activities.append({
+            "id": report.id,
+            "testcase_name": testcase_name,
+            "status": report.status,
+            "executed_at": report.generated_at.isoformat() if report.generated_at else None,
+            "duration": report.duration,
+            "report_id": report.id
+        })
+    
+    return {
+        "success": True,
+        "data": {
+            "activities": activities
         }
     }
 
@@ -738,31 +801,97 @@ async def api_execute_testcase(request: dict = Body(...), db: Session = Depends(
     """执行测试用例"""
     test_case_id = request.get("test_case_id")
     headless = request.get("headless", True)
+    timeout = request.get("timeout", 30)
+    retry_count = request.get("retry_count", 3)
+    screenshot_quality = request.get("screenshot_quality", 80)
+    screenshot_enabled = request.get("screenshot_enabled", True)
+    save_to_db = request.get("save_to_db", True)
 
     if not test_case_id:
         raise HTTPException(status_code=400, detail="缺少test_case_id")
 
     try:
-        # 获取测试用例
         testcase = db.query(TestCase).filter(TestCase.id == test_case_id).first()
         if not testcase:
             raise HTTPException(status_code=404, detail="测试用例不存在")
 
-        # 获取全局执行器
-        executor = get_executor()
+        testcase_dict = {
+            "id": testcase.id,
+            "name": testcase.name,
+            "description": testcase.description,
+            "steps": testcase.get_steps() if hasattr(testcase, 'get_steps') else [],
+            "url": testcase.script_data.get("url") if hasattr(testcase, 'script_data') and testcase.script_data and testcase.script_data.get("url") else None
+        }
 
-        # 生成执行ID
+        from core.executor_optimized import execute_testcase_sync, ExecutionResult
         import uuid
+        import threading
+        
+        executor = get_executor()
         execution_id = str(uuid.uuid4())
-
-        # 提交执行任务
-        await executor.execute_testcase(testcase, execution_id, headless)
+        
+        initial_result = ExecutionResult(
+            execution_id=execution_id,
+            testcase_id=testcase.id,
+            testcase_name=testcase.name
+        )
+        initial_result.status = "pending"
+        with executor._lock:
+            executor.execution_results[execution_id] = initial_result
+        
+        def run_in_thread():
+            from core.executor_optimized import OptimizedTestExecutor
+            task_executor = OptimizedTestExecutor(
+                headless=headless, 
+                log_level='normal',
+                timeout=timeout,
+                retry_count=retry_count,
+                screenshot_quality=screenshot_quality,
+                screenshot_enabled=screenshot_enabled
+            )
+            try:
+                execute_testcase_sync(
+                    testcase=testcase_dict,
+                    headless=headless,
+                    save_to_db=save_to_db,
+                    log_level='normal',
+                    timeout=timeout,
+                    retry_count=retry_count,
+                    screenshot_quality=screenshot_quality,
+                    screenshot_enabled=screenshot_enabled,
+                    execution_id=execution_id,
+                    executor=task_executor
+                )
+            except Exception as e:
+                import traceback
+                print(f"[执行错误] 执行ID: {execution_id}")
+                print(f"[执行错误] 错误信息: {e}")
+                print(f"[执行错误] 堆栈跟踪:\n{traceback.format_exc()}")
+                
+                with executor._lock:
+                    if execution_id in executor.execution_results:
+                        result = executor.execution_results[execution_id]
+                        result.status = "failed"
+                        result.error = str(e)
+        
+        thread = threading.Thread(target=run_in_thread, daemon=True)
+        thread.start()
 
         return {
             "success": True,
             "execution_id": execution_id,
             "testcase_id": test_case_id,
-            "message": "测试已开始执行"
+            "testcase_name": testcase.name,
+            "status": "running",
+            "start_time": datetime.now().isoformat(),
+            "message": "测试已开始执行",
+            "config": {
+                "headless": headless,
+                "timeout": timeout,
+                "retry_count": retry_count,
+                "screenshot_quality": screenshot_quality,
+                "screenshot_enabled": screenshot_enabled
+            }
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -771,11 +900,215 @@ async def api_execute_testcase(request: dict = Body(...), db: Session = Depends(
 async def api_get_execution_result(execution_id: str, db: Session = Depends(get_db)):
     """获取执行结果"""
     try:
-        # 获取全局执行器
         executor = get_executor()
         
-        result = await executor.get_execution_result(execution_id)
-        return result
+        result = executor.get_execution_result(execution_id)
+        
+        if not result or result.get("status") == "not_found":
+            raise HTTPException(status_code=404, detail="执行记录不存在")
+        
+        execution_result = {
+            "success": True,
+            "execution_id": execution_id,
+            "testcase_id": result.get("testcase_id"),
+            "testcase_name": result.get("testcase_name"),
+            "status": result.get("status"),
+            "start_time": result.get("start_time"),
+            "end_time": result.get("end_time"),
+            "duration": result.get("duration"),
+            "execution_log": result.get("execution_log", []),
+            "screenshots": result.get("screenshots", []),
+            "error": result.get("error"),
+            "progress": calculate_progress(result),
+            "report_id": result.get("report_id")
+        }
+        
+        return execution_result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/execution/{execution_id}/status")
+async def api_get_execution_status(execution_id: str, db: Session = Depends(get_db)):
+    """获取执行状态"""
+    try:
+        executor = get_executor()
+        
+        result = executor.get_execution_result(execution_id)
+        
+        if not result or result.get("status") == "not_found":
+            raise HTTPException(status_code=404, detail="执行记录不存在")
+        
+        return {
+            "success": True,
+            "execution_id": execution_id,
+            "status": result.get("status"),
+            "progress": calculate_progress(result),
+            "start_time": result.get("start_time"),
+            "end_time": result.get("end_time"),
+            "duration": result.get("duration"),
+            "error": result.get("error")
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/execution/{execution_id}/logs")
+async def api_get_execution_logs(execution_id: str, db: Session = Depends(get_db)):
+    """获取执行日志"""
+    try:
+        executor = get_executor()
+        
+        result = executor.get_execution_result(execution_id)
+        
+        if not result or result.get("status") == "not_found":
+            raise HTTPException(status_code=404, detail="执行记录不存在")
+        
+        return {
+            "success": True,
+            "execution_id": execution_id,
+            "status": result.get("status"),
+            "execution_log": result.get("execution_log", []),
+            "screenshots": result.get("screenshots", [])
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+def calculate_progress(result: dict) -> int:
+    """计算执行进度"""
+    status = result.get("status")
+    if status == "pending":
+        return 0
+    elif status == "running":
+        return 50
+    elif status in ["passed", "success"]:
+        return 100
+    elif status == "failed":
+        return 100
+    else:
+        return 0
+
+@router.post("/execute/batch")
+async def api_execute_batch(request: dict = Body(...), db: Session = Depends(get_db)):
+    """批量执行测试用例"""
+    test_case_ids = request.get("test_case_ids", [])
+    headless = request.get("headless", True)
+    timeout = request.get("timeout", 30)
+    retry_count = request.get("retry_count", 3)
+    screenshot_quality = request.get("screenshot_quality", 80)
+    screenshot_enabled = request.get("screenshot_enabled", True)
+    
+    if not test_case_ids or not isinstance(test_case_ids, list):
+        raise HTTPException(status_code=400, detail="缺少test_case_ids或格式错误")
+    
+    try:
+        from core.executor_optimized import OptimizedTestExecutor
+        executor = OptimizedTestExecutor(
+            headless=headless, 
+            log_level='normal',
+            timeout=timeout,
+            retry_count=retry_count,
+            screenshot_quality=screenshot_quality,
+            screenshot_enabled=screenshot_enabled
+        )
+        batch_id = str(uuid.uuid4())
+        execution_ids = []
+        
+        from core.executor_optimized import execute_testcase_sync, ExecutionResult
+        import threading
+        
+        for test_case_id in test_case_ids:
+            testcase = db.query(TestCase).filter(TestCase.id == test_case_id).first()
+            if not testcase:
+                continue
+            
+            testcase_dict = {
+                "id": testcase.id,
+                "name": testcase.name,
+                "description": testcase.description,
+                "steps": testcase.get_steps() if hasattr(testcase, 'get_steps') else [],
+                "url": testcase.script_data.get("url") if hasattr(testcase, 'script_data') and testcase.script_data and testcase.script_data.get("url") else None
+            }
+            
+            execution_id = str(uuid.uuid4())
+            
+            initial_result = ExecutionResult(
+                execution_id=execution_id,
+                testcase_id=testcase.id,
+                testcase_name=testcase.name
+            )
+            initial_result.status = "pending"
+            with executor._lock:
+                executor.execution_results[execution_id] = initial_result
+            
+            def run_in_thread(tid=execution_id, tc=testcase_dict, exec_inst=executor):
+                try:
+                    execute_testcase_sync(
+                        testcase=tc,
+                        headless=headless,
+                        save_to_db=True,
+                        log_level='normal',
+                        timeout=timeout,
+                        retry_count=retry_count,
+                        screenshot_quality=screenshot_quality,
+                        screenshot_enabled=screenshot_enabled,
+                        execution_id=tid,
+                        executor=exec_inst
+                    )
+                except Exception as e:
+                    import traceback
+                    print(f"[批量执行错误] 执行ID: {tid}")
+                    print(f"[批量执行错误] 错误信息: {e}")
+                    print(f"[批量执行错误] 堆栈跟踪:\n{traceback.format_exc()}")
+                    
+                    with exec_inst._lock:
+                        if tid in exec_inst.execution_results:
+                            result = exec_inst.execution_results[tid]
+                            result.status = "failed"
+                            result.error = str(e)
+            
+            thread = threading.Thread(target=run_in_thread, daemon=True)
+            thread.start()
+            
+            execution_ids.append({
+                "test_case_id": test_case_id,
+                "execution_id": execution_id,
+                "testcase_name": testcase.name,
+                "status": "running"
+            })
+        
+        return {
+            "success": True,
+            "batch_id": batch_id,
+            "total": len(test_case_ids),
+            "execution_ids": execution_ids,
+            "message": f"已提交 {len(execution_ids)} 个测试用例执行",
+            "config": {
+                "headless": headless,
+                "timeout": timeout,
+                "retry_count": retry_count,
+                "screenshot_quality": screenshot_quality,
+                "screenshot_enabled": screenshot_enabled
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/execution/batch/{batch_id}")
+async def api_get_batch_execution_result(batch_id: str, db: Session = Depends(get_db)):
+    """获取批量执行结果"""
+    try:
+        executor = get_executor()
+        
+        return {
+            "success": True,
+            "batch_id": batch_id,
+            "message": "批量执行结果查询功能开发中"
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

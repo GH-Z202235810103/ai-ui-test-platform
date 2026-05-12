@@ -13,7 +13,7 @@ BASE_DIR = Path(__file__).parent.parent
 
 # API配置
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
-API_PORT = int(os.getenv("API_PORT", "8000"))
+API_PORT = int(os.getenv("API_PORT", "8001"))
 API_PREFIX = os.getenv("API_PREFIX", "/api")
 
 # 数据库配置
